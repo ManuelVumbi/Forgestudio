@@ -76,6 +76,10 @@ function translateAuthError(err: any): string {
       return 'A janela de autenticação Google foi fechada antes de concluir.';
     case 'auth/popup-blocked':
       return 'O navegador bloqueou a janela popup de login Google. Permita popups para este site.';
+    case 'auth/unauthorized-domain': {
+      const host = typeof window !== 'undefined' ? window.location.hostname : '';
+      return `O domínio actual${host ? ` (${host})` : ''} não está autorizado na Consola Firebase (Authentication → Settings → Authorized domains). Adicione este domínio no Firebase ou inicie sessão com Email e Senha.`;
+    }
     case 'auth/network-request-failed':
       return 'Sem ligação à Internet. Verifique a sua rede e tente novamente.';
     default:
