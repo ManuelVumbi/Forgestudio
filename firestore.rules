@@ -1,0 +1,461 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Global Helpers
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        (request.auth.token.email is string && request.auth.token.email.lower() == 'manuelumbavumbi@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Entity Validation Blueprints
+    // -------------------------------------------------------------------------
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'email', 'displayName', 'role', 'planId',
+          'accountStatus', 'storageUsedBytes', 'buildsThisMonth',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'photoURL', 'role', 'planId',
+          'accountStatus', 'storageUsedBytes', 'buildsThisMonth',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.role in ['user', 'admin']
+        && data.planId in ['free', 'pro', 'enterprise']
+        && data.accountStatus in ['active', 'suspended']
+        && data.storageUsedBytes is number && data.storageUsedBytes >= 0
+        && data.buildsThisMonth is number && data.buildsThisMonth >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPlan(data) {
+      return data.keys().hasAll([
+          'id', 'name', 'monthlyPriceEur', 'maxProjects', 'maxBuildsPerMonth',
+          'maxStorageMb', 'allowApkDebug', 'allowApkRelease', 'allowAab',
+          'allowWindowsExe', 'allowWindowsPortable', 'allowSourceExport',
+          'whiteLabel', 'priorityQueue', 'teamSeats', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'tagline', 'monthlyPriceEur', 'maxProjects', 'maxBuildsPerMonth',
+          'maxStorageMb', 'allowApkDebug', 'allowApkRelease', 'allowAab',
+          'allowWindowsExe', 'allowWindowsPortable', 'allowSourceExport',
+          'whiteLabel', 'priorityQueue', 'teamSeats', 'updatedAt'
+        ])
+        && data.id in ['free', 'pro', 'enterprise']
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 60
+        && (!('tagline' in data) || (data.tagline is string && data.tagline.size() <= 160))
+        && data.monthlyPriceEur is number && data.monthlyPriceEur >= 0
+        && data.maxProjects is number && data.maxProjects >= 1
+        && data.maxBuildsPerMonth is number && data.maxBuildsPerMonth >= 1
+        && data.maxStorageMb is number && data.maxStorageMb >= 10
+        && data.allowApkDebug is bool
+        && data.allowApkRelease is bool
+        && data.allowAab is bool
+        && data.allowWindowsExe is bool
+        && data.allowWindowsPortable is bool
+        && data.allowSourceExport is bool
+        && data.whiteLabel is bool
+        && data.priorityQueue is bool
+        && data.teamSeats is number && data.teamSeats >= 1
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'conversionType', 'framework', 'appName',
+          'packageName', 'appIdentifier', 'versionName', 'versionCode',
+          'platforms', 'visual', 'advanced', 'windowsConfig', 'signing',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'ownerEmail', 'conversionType', 'framework',
+          'sourceBundleId', 'appName', 'packageName', 'appIdentifier',
+          'description', 'versionName', 'versionCode', 'author',
+          'sourceUrl', 'category', 'platforms', 'visual', 'advanced',
+          'windowsConfig', 'signing', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && (!('ownerEmail' in data) || (data.ownerEmail is string && data.ownerEmail.size() <= 200))
+        && data.conversionType in ['url', 'files', 'web_project']
+        && data.framework in ['auto', 'html', 'react', 'vue', 'angular', 'laravel', 'php', 'static']
+        && (!('sourceBundleId' in data) || (data.sourceBundleId is string && data.sourceBundleId.size() <= 128))
+        && data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 80
+        && data.packageName is string && data.packageName.size() >= 3 && data.packageName.size() <= 120
+        && data.packageName.matches('^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$')
+        && data.appIdentifier is string && data.appIdentifier.size() >= 4 && data.appIdentifier.size() <= 80
+        && (!('description' in data) || (data.description is string && data.description.size() <= 500))
+        && data.versionName is string && data.versionName.size() >= 1 && data.versionName.size() <= 30
+        && data.versionCode is number && data.versionCode >= 1
+        && (!('author' in data) || (data.author is string && data.author.size() <= 100))
+        && (!('sourceUrl' in data) || (data.sourceUrl is string && data.sourceUrl.size() <= 500))
+        && (!('category' in data) || (data.category is string && data.category.size() <= 60))
+        && data.platforms is map
+        && data.platforms.keys().hasOnly([
+          'androidApkDebug', 'androidApkRelease', 'androidAab',
+          'windowsExe', 'windowsPortable', 'exportSourceCode'
+        ])
+        && data.visual is map && data.visual.keys().size() <= 16
+        && data.advanced is map && data.advanced.keys().size() <= 24
+        && data.windowsConfig is map && data.windowsConfig.keys().size() <= 24
+        && data.signing is map
+        && data.signing.keys().hasOnly(['keystoreMode', 'keystoreId', 'keystoreAlias', 'packageSha256'])
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidBuild(data) {
+      return data.keys().hasAll([
+          'id', 'projectId', 'ownerId', 'appName', 'versionName',
+          'targetFormats', 'status', 'progress', 'currentStep',
+          'logs', 'artifacts', 'missingInfrastructure', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'projectId', 'ownerId', 'appName', 'versionName',
+          'targetFormats', 'status', 'progress', 'currentStep',
+          'logs', 'artifacts', 'missingInfrastructure', 'errorMessage',
+          'createdAt', 'updatedAt', 'completedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.projectId)
+        && isValidId(data.ownerId)
+        && data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 80
+        && data.versionName is string && data.versionName.size() >= 1 && data.versionName.size() <= 30
+        && data.targetFormats is list && data.targetFormats.size() >= 1 && data.targetFormats.size() <= 10
+        && data.targetFormats[0] is string
+        && data.status in ['queued', 'processing', 'compiling', 'completed', 'failed', 'cancelled']
+        && data.progress is number && data.progress >= 0 && data.progress <= 100
+        && data.currentStep is string && data.currentStep.size() >= 1 && data.currentStep.size() <= 200
+        && data.logs is list && data.logs.size() <= 60
+        && (data.logs.size() == 0 || data.logs[0] is string)
+        && data.artifacts is list && data.artifacts.size() <= 10
+        && (data.artifacts.size() == 0 || data.artifacts[0] is map)
+        && data.missingInfrastructure is list && data.missingInfrastructure.size() <= 10
+        && (data.missingInfrastructure.size() == 0 || data.missingInfrastructure[0] is string)
+        && (!('errorMessage' in data) || (data.errorMessage is string && data.errorMessage.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('completedAt' in data) || data.completedAt is timestamp);
+    }
+
+    function isValidDownload(data) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'buildId', 'projectId', 'appName',
+          'format', 'fileName', 'sizeBytes', 'downloadedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'buildId', 'projectId', 'appName',
+          'format', 'fileName', 'sizeBytes', 'downloadedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && isValidId(data.buildId)
+        && isValidId(data.projectId)
+        && data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 80
+        && data.format is string && data.format.size() >= 1 && data.format.size() <= 40
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 160
+        && data.sizeBytes is number && data.sizeBytes >= 0
+        && data.downloadedAt is timestamp;
+    }
+
+    function isValidPayment(data) {
+      return data.keys().hasAll([
+          'id', 'userId', 'userEmail', 'planId', 'amountEur',
+          'status', 'method', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'userEmail', 'planId', 'amountEur',
+          'status', 'method', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200
+        && data.planId in ['free', 'pro', 'enterprise']
+        && data.amountEur is number && data.amountEur >= 0
+        && data.status in ['paid', 'pending', 'refunded']
+        && data.method is string && data.method.size() >= 2 && data.method.size() <= 60
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll([
+          'id', 'actorUid', 'actorEmail', 'action',
+          'targetType', 'targetId', 'details', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'actorUid', 'actorEmail', 'action',
+          'targetType', 'targetId', 'details', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.actorUid)
+        && data.actorEmail is string && data.actorEmail.size() >= 3 && data.actorEmail.size() <= 200
+        && data.action is string && data.action.size() >= 2 && data.action.size() <= 100
+        && data.targetType is string && data.targetType.size() >= 2 && data.targetType.size() <= 60
+        && data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128
+        && data.details is string && data.details.size() <= 500
+        && data.createdAt is timestamp;
+    }
+
+    function isValidEngineSettings(data) {
+      return data.keys().hasAll([
+          'androidSdkVersion', 'gradleVersion', 'electronVersion',
+          'androidWorkerConfigured', 'windowsWorkerConfigured',
+          'maxConcurrentBuilds', 'maxUploadSizeMb', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'androidSdkVersion', 'gradleVersion', 'electronVersion',
+          'androidWorkerUrl', 'windowsWorkerUrl',
+          'androidWorkerConfigured', 'windowsWorkerConfigured',
+          'maxConcurrentBuilds', 'maxUploadSizeMb', 'updatedAt'
+        ])
+        && data.androidSdkVersion is string && data.androidSdkVersion.size() <= 40
+        && data.gradleVersion is string && data.gradleVersion.size() <= 40
+        && data.electronVersion is string && data.electronVersion.size() <= 40
+        && (!('androidWorkerUrl' in data) || (data.androidWorkerUrl is string && data.androidWorkerUrl.size() <= 300))
+        && (!('windowsWorkerUrl' in data) || (data.windowsWorkerUrl is string && data.windowsWorkerUrl.size() <= 300))
+        && data.androidWorkerConfigured is bool
+        && data.windowsWorkerConfigured is bool
+        && data.maxConcurrentBuilds is number && data.maxConcurrentBuilds >= 1
+        && data.maxUploadSizeMb is number && data.maxUploadSizeMb >= 1
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminSecrets(data) {
+      return data.keys().hasAll(['updatedAt'])
+        && data.keys().hasOnly([
+          'remoteWorkerAuthToken', 'githubActionsRepo',
+          'githubActionsToken', 'fcmServerProjectId', 'updatedAt'
+        ])
+        && (!('remoteWorkerAuthToken' in data) || (data.remoteWorkerAuthToken is string && data.remoteWorkerAuthToken.size() <= 300))
+        && (!('githubActionsRepo' in data) || (data.githubActionsRepo is string && data.githubActionsRepo.size() <= 200))
+        && (!('githubActionsToken' in data) || (data.githubActionsToken is string && data.githubActionsToken.size() <= 300))
+        && (!('fcmServerProjectId' in data) || (data.fcmServerProjectId is string && data.fcmServerProjectId.size() <= 120))
+        && data.updatedAt is timestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection Rules
+    // -------------------------------------------------------------------------
+    match /test/connection {
+      allow get: if isSignedIn();
+    }
+
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isValidId(adminId) && isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isVerifiedUser()
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == request.auth.uid
+        && (incoming().role == 'user' || isAdmin())
+        && incoming().planId == 'free'
+        && incoming().accountStatus == 'active'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerifiedUser()
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().accountStatus == existing().accountStatus
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'photoURL', 'email', 'planId',
+              'storageUsedBytes', 'buildsThisMonth', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /plans/{planId} {
+      allow get: if isValidId(planId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isValidId(planId)
+        && isAdmin()
+        && isValidPlan(incoming())
+        && incoming().id == planId
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(planId) && isAdmin();
+    }
+
+    match /projects/{projectId} {
+      allow get: if isValidId(projectId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(projectId)
+        && isVerifiedUser()
+        && isValidProject(incoming())
+        && incoming().id == projectId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(projectId)
+        && isVerifiedUser()
+        && isValidProject(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'conversionType', 'framework', 'sourceBundleId', 'appName',
+              'packageName', 'description', 'versionName', 'versionCode',
+              'author', 'sourceUrl', 'category', 'platforms', 'visual',
+              'advanced', 'windowsConfig', 'signing', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(projectId) && isVerifiedUser() && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /builds/{buildId} {
+      allow get: if isValidId(buildId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(buildId)
+        && isVerifiedUser()
+        && isValidBuild(incoming())
+        && incoming().id == buildId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/projects/$(incoming().projectId))
+        && get(/databases/$(database)/documents/projects/$(incoming().projectId)).data.ownerId == request.auth.uid;
+      allow update: if isValidId(buildId)
+        && isVerifiedUser()
+        && isValidBuild(incoming())
+        && incoming().id == existing().id
+        && incoming().projectId == existing().projectId
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid
+            && existing().status in ['queued', 'processing', 'compiling']
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'progress', 'currentStep', 'logs',
+              'artifacts', 'missingInfrastructure', 'errorMessage',
+              'updatedAt', 'completedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(buildId) && isVerifiedUser() && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /downloads/{downloadId} {
+      allow get: if isValidId(downloadId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(downloadId)
+        && isVerifiedUser()
+        && isValidDownload(incoming())
+        && incoming().id == downloadId
+        && incoming().ownerId == request.auth.uid
+        && incoming().downloadedAt == request.time
+        && exists(/databases/$(database)/documents/builds/$(incoming().buildId))
+        && get(/databases/$(database)/documents/builds/$(incoming().buildId)).data.ownerId == request.auth.uid;
+      allow update: if false;
+      allow delete: if isValidId(downloadId) && isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow get: if isValidId(paymentId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isValidId(paymentId)
+        && isVerifiedUser()
+        && isValidPayment(incoming())
+        && incoming().id == paymentId
+        && incoming().createdAt == request.time
+        && (isAdmin() || (incoming().userId == request.auth.uid && incoming().status == 'paid'));
+      allow update, delete: if isValidId(paymentId) && isAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && (existing().actorUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.actorUid == request.auth.uid || isAdmin());
+      allow create: if isValidId(logId)
+        && isVerifiedUser()
+        && isValidAuditLog(incoming())
+        && incoming().id == logId
+        && incoming().actorUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isValidId(settingId)
+        && isAdmin()
+        && isValidEngineSettings(incoming())
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+
+    match /adminSecrets/{secretId} {
+      allow get: if isValidId(secretId) && isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if isValidId(secretId)
+        && isAdmin()
+        && isValidAdminSecrets(incoming())
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(secretId) && isAdmin();
+    }
+  }
+}

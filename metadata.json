@@ -1,0 +1,6 @@
+{
+  "name": "AppForge Studio",
+  "description": "Plataforma SaaS inteligente de conversão automática de websites e projectos web em aplicações Android (APK, AAB) e Windows (EXE instalador e portátil).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

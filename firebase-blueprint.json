@@ -1,0 +1,223 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered AppForge Studio user account, subscription plan, and quota telemetry.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "planId": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+        "accountStatus": { "type": "string", "enum": ["active", "suspended"] },
+        "storageUsedBytes": { "type": "number" },
+        "buildsThisMonth": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "planId", "accountStatus", "storageUsedBytes", "buildsThisMonth", "createdAt", "updatedAt"]
+    },
+    "SubscriptionPlan": {
+      "title": "SubscriptionPlan",
+      "description": "Configurable monetization tier managed from the Admin Panel.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+        "name": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "tagline": { "type": "string", "maxLength": 160 },
+        "monthlyPriceEur": { "type": "number" },
+        "maxProjects": { "type": "number" },
+        "maxBuildsPerMonth": { "type": "number" },
+        "maxStorageMb": { "type": "number" },
+        "allowApkDebug": { "type": "boolean" },
+        "allowApkRelease": { "type": "boolean" },
+        "allowAab": { "type": "boolean" },
+        "allowWindowsExe": { "type": "boolean" },
+        "allowWindowsPortable": { "type": "boolean" },
+        "allowSourceExport": { "type": "boolean" },
+        "whiteLabel": { "type": "boolean" },
+        "priorityQueue": { "type": "boolean" },
+        "teamSeats": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "monthlyPriceEur", "maxProjects", "maxBuildsPerMonth", "maxStorageMb", "allowApkDebug", "allowApkRelease", "allowAab", "allowWindowsExe", "allowWindowsPortable", "allowSourceExport", "whiteLabel", "priorityQueue", "teamSeats", "updatedAt"]
+    },
+    "AppProject": {
+      "title": "AppProject",
+      "description": "Application conversion configuration across URL, static files, and web frameworks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerEmail": { "type": "string", "maxLength": 200 },
+        "conversionType": { "type": "string", "enum": ["url", "files", "web_project"] },
+        "framework": { "type": "string", "enum": ["auto", "html", "react", "vue", "angular", "laravel", "php", "static"] },
+        "sourceBundleId": { "type": "string", "maxLength": 128 },
+        "appName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "packageName": { "type": "string", "minLength": 3, "maxLength": 120, "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$" },
+        "appIdentifier": { "type": "string", "minLength": 4, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 500 },
+        "versionName": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "versionCode": { "type": "number" },
+        "author": { "type": "string", "maxLength": 100 },
+        "sourceUrl": { "type": "string", "maxLength": 500 },
+        "category": { "type": "string", "maxLength": 60 },
+        "platforms": { "type": "object" },
+        "visual": { "type": "object" },
+        "advanced": { "type": "object" },
+        "windowsConfig": { "type": "object" },
+        "signing": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "conversionType", "framework", "appName", "packageName", "appIdentifier", "versionName", "versionCode", "platforms", "visual", "advanced", "windowsConfig", "signing", "createdAt", "updatedAt"]
+    },
+    "BuildJob": {
+      "title": "BuildJob",
+      "description": "Compilation pipeline job tracking state, step logs, missing infrastructure diagnostics, and output artifacts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "projectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "appName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "versionName": { "type": "string", "maxLength": 30 },
+        "targetFormats": { "type": "array" },
+        "status": { "type": "string", "enum": ["queued", "processing", "compiling", "completed", "failed", "cancelled"] },
+        "progress": { "type": "number" },
+        "currentStep": { "type": "string", "maxLength": 200 },
+        "logs": { "type": "array" },
+        "artifacts": { "type": "array" },
+        "missingInfrastructure": { "type": "array" },
+        "errorMessage": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "projectId", "ownerId", "appName", "versionName", "targetFormats", "status", "progress", "currentStep", "logs", "artifacts", "missingInfrastructure", "createdAt", "updatedAt"]
+    },
+    "DownloadRecord": {
+      "title": "DownloadRecord",
+      "description": "User artifact download history.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "buildId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "projectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "appName": { "type": "string", "maxLength": 80 },
+        "format": { "type": "string", "maxLength": 40 },
+        "fileName": { "type": "string", "maxLength": 160 },
+        "sizeBytes": { "type": "number" },
+        "downloadedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "buildId", "projectId", "appName", "format", "fileName", "sizeBytes", "downloadedAt"]
+    },
+    "PaymentRecord": {
+      "title": "PaymentRecord",
+      "description": "Subscription and billing transaction record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userEmail": { "type": "string", "maxLength": 200 },
+        "planId": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+        "amountEur": { "type": "number" },
+        "status": { "type": "string", "enum": ["paid", "pending", "refunded"] },
+        "method": { "type": "string", "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userEmail", "planId", "amountEur", "status", "method", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Security and operational audit log entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorEmail": { "type": "string", "maxLength": 200 },
+        "action": { "type": "string", "maxLength": 100 },
+        "targetType": { "type": "string", "maxLength": 60 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "details": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "actorUid", "actorEmail", "action", "targetType", "targetId", "details", "createdAt"]
+    },
+    "EngineSettings": {
+      "title": "EngineSettings",
+      "description": "Publicly readable build engine capabilities and status (non-secret).",
+      "type": "object",
+      "properties": {
+        "androidSdkVersion": { "type": "string", "maxLength": 40 },
+        "gradleVersion": { "type": "string", "maxLength": 40 },
+        "electronVersion": { "type": "string", "maxLength": 40 },
+        "androidWorkerUrl": { "type": "string", "maxLength": 300 },
+        "windowsWorkerUrl": { "type": "string", "maxLength": 300 },
+        "androidWorkerConfigured": { "type": "boolean" },
+        "windowsWorkerConfigured": { "type": "boolean" },
+        "maxConcurrentBuilds": { "type": "number" },
+        "maxUploadSizeMb": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["androidSdkVersion", "gradleVersion", "electronVersion", "androidWorkerConfigured", "windowsWorkerConfigured", "maxConcurrentBuilds", "maxUploadSizeMb", "updatedAt"]
+    },
+    "AdminEngineSecrets": {
+      "title": "AdminEngineSecrets",
+      "description": "Admin-only encrypted tokens and signing webhook credentials for remote Android/Windows workers.",
+      "type": "object",
+      "properties": {
+        "remoteWorkerAuthToken": { "type": "string", "maxLength": 300 },
+        "githubActionsRepo": { "type": "string", "maxLength": 200 },
+        "githubActionsToken": { "type": "string", "maxLength": 300 },
+        "fcmServerProjectId": { "type": "string", "maxLength": 120 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile, plan assignment, and account status."
+    },
+    "/admins/{adminId}": {
+      "schema": { "type": "object" },
+      "description": "Admin grant registry."
+    },
+    "/plans/{planId}": {
+      "schema": { "$ref": "#/entities/SubscriptionPlan" },
+      "description": "Platform monetization plans configurable by admins."
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/AppProject" },
+      "description": "User application conversion projects."
+    },
+    "/builds/{buildId}": {
+      "schema": { "$ref": "#/entities/BuildJob" },
+      "description": "Build queue jobs and artifact metadata."
+    },
+    "/downloads/{downloadId}": {
+      "schema": { "$ref": "#/entities/DownloadRecord" },
+      "description": "User download history records."
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentRecord" },
+      "description": "Billing transactions."
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Platform audit logs."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/EngineSettings" },
+      "description": "Non-secret global engine configuration."
+    },
+    "/adminSecrets/{secretId}": {
+      "schema": { "$ref": "#/entities/AdminEngineSecrets" },
+      "description": "Admin-only remote worker tokens and CI credentials."
+    }
+  }
+}
