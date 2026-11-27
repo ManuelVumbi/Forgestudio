@@ -21,6 +21,7 @@ interface LandingPageProps {
   onResetPassword: (email: string) => Promise<void>;
   onClearAuthError: () => void;
   authError: string | null;
+  authErrorCode?: string | null;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -30,6 +31,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onResetPassword,
   onClearAuthError,
   authError,
+  authErrorCode,
 }) => {
   const [previewUrl, setPreviewUrl] = useState('https://minhaloja.pt');
   const [loginOpen, setLoginOpen] = useState(false);
@@ -312,6 +314,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <LoginModal
         open={loginOpen}
         authError={authError}
+        authErrorCode={authErrorCode}
         onClearError={onClearAuthError}
         onClose={() => setLoginOpen(false)}
         onSignInGoogle={onSignInGoogle}

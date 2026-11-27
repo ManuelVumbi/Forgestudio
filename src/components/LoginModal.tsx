@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   ArrowRight,
+  Check,
+  Copy,
+  ExternalLink,
   Eye,
   EyeOff,
   KeyRound,
@@ -9,10 +12,24 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react';
+import firebaseConfig from '../../firebase-applet-config.json';
+
+const DEFAULT_AUTHORIZED_APP_URL =
+  'https://ais-pre-vt2flm7k2y7q4l7f7gdamg-464361906289.europe-west2.run.app';
+
+function toSafeHttpUrl(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 interface LoginModalProps {
   open: boolean;
   authError: string | null;
+  authErrorCode?: string | null;
   onClearError?: () => void;
   onClose: () => void;
   onSignInGoogle: () => Promise<void>;
@@ -26,6 +43,7 @@ type AuthTab = 'login' | 'register' | 'reset';
 export const LoginModal: React.FC<LoginModalProps> = ({
   open,
   authError,
+  authErrorCode,
   onClearError,
   onClose,
   onSignInGoogle,
@@ -41,16 +59,45 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   useEffect(() => {
     if (open) {
       setLocalError(null);
       setSuccessMsg(null);
+      setCopiedDomain(false);
       onClearError?.();
     }
   }, [open]);
 
   if (!open) return null;
+
+  const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isDomainError = authErrorCode === 'auth/unauthorized-domain';
+  const isPasswordDisabledError = authErrorCode === 'auth/operation-not-allowed';
+  const firebaseConsoleUrl = toSafeHttpUrl(
+    `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/${
+      isPasswordDisabledError ? 'providers' : 'settings'
+    }`
+  );
+  const authorizedAppUrl = toSafeHttpUrl(
+    (import.meta.env.VITE_AUTHORIZED_APP_URL || '').trim() || DEFAULT_AUTHORIZED_APP_URL
+  );
+  const showAuthorizedAppShortcut =
+    Boolean(authorizedAppUrl) &&
+    Boolean(currentHost) &&
+    !authorizedAppUrl!.includes(currentHost);
+
+  const handleCopyDomain = async () => {
+    if (!currentHost || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(currentHost);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2500);
+    } catch {
+      // Clipboard unavailable
+    }
+  };
 
   const switchTab = (next: AuthTab) => {
     setTab(next);
@@ -273,8 +320,67 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             )}
 
             {displayedError && (
-              <div className="rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300 leading-relaxed">
-                {displayedError}
+              <div className="rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300 leading-relaxed space-y-2.5">
+                <p>{displayedError}</p>
+
+                {(isDomainError || isPasswordDisabledError) && (
+                  <div className="pt-2 border-t border-red-200/80 dark:border-red-900/60 space-y-2">
+                    {isDomainError && currentHost && (
+                      <div className="flex items-center justify-between gap-2 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-red-200/70 dark:border-red-900/50 px-2.5 py-1.5">
+                        <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate">
+                          {currentHost}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCopyDomain}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-slate-900 text-white dark:bg-slate-700 hover:bg-slate-800 dark:hover:bg-slate-600 shrink-0 cursor-pointer"
+                        >
+                          {copiedDomain ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span>Copiado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copiar domínio</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      {firebaseConsoleUrl && (
+                        <a
+                          href={firebaseConsoleUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-red-200 dark:border-red-900/60 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        >
+                          <span>
+                            {isPasswordDisabledError
+                              ? 'Activar Email/Senha no Firebase'
+                              : 'Autorizar domínio no Firebase'}
+                          </span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+
+                      {showAuthorizedAppShortcut && authorizedAppUrl && (
+                        <a
+                          href={authorizedAppUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-blue-700 text-white hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+                        >
+                          <span>Abrir App Autorizada (Login Google + Build)</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

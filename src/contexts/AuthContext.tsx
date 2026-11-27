@@ -34,6 +34,7 @@ interface AuthContextValue {
   profile: UserProfile | null;
   loading: boolean;
   authError: string | null;
+  authErrorCode: string | null;
   clearAuthError: () => void;
   isAdmin: boolean;
   needsEmailVerification: boolean;
@@ -57,7 +58,7 @@ function translateAuthError(err: any): string {
   const code = err?.code || '';
   switch (code) {
     case 'auth/operation-not-allowed':
-      return 'O método Email/Senha ainda não está activado na Consola Firebase (Authentication → Sign-in method → Email/Password). Active-o ou entre com Conta Google.';
+      return 'O método Email/Senha está desactivado na Consola Firebase (Authentication → Sign-in method → Email/Password). Active-o no Firebase ou entre com Conta Google num domínio autorizado.';
     case 'auth/invalid-email':
       return 'O endereço de email introduzido não é válido.';
     case 'auth/user-disabled':
@@ -78,7 +79,7 @@ function translateAuthError(err: any): string {
       return 'O navegador bloqueou a janela popup de login Google. Permita popups para este site.';
     case 'auth/unauthorized-domain': {
       const host = typeof window !== 'undefined' ? window.location.hostname : '';
-      return `O domínio actual${host ? ` (${host})` : ''} não está autorizado na Consola Firebase (Authentication → Settings → Authorized domains). Adicione este domínio no Firebase ou inicie sessão com Email e Senha.`;
+      return `O domínio actual${host ? ` (${host})` : ''} não está autorizado na Consola Firebase. Adicione este domínio em Authentication → Settings → Authorized domains no Firebase ou aceda através do endereço principal autorizado.`;
     }
     case 'auth/network-request-failed':
       return 'Sem ligação à Internet. Verifique a sua rede e tente novamente.';
@@ -92,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authErrorCode, setAuthErrorCode] = useState<string | null>(null);
   const [engineSettings, setEngineSettings] = useState<EngineSettings>(DEFAULT_ENGINE_SETTINGS);
   const [projects, setProjects] = useState<AppProject[]>([]);
   const [builds, setBuilds] = useState<BuildJob[]>([]);
@@ -110,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prof.role === 'admin' || (fbUser.emailVerified && isAdminEmail(fbUser.email));
     await seedDefaultsIfAdmin(adminFlag);
     setAuthError(null);
+    setAuthErrorCode(null);
   };
 
   useEffect(() => {
@@ -168,10 +171,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user, isAdmin]);
 
-  const clearAuthError = () => setAuthError(null);
+  const clearAuthError = () => {
+    setAuthError(null);
+    setAuthErrorCode(null);
+  };
 
   const signInWithGoogle = async () => {
-    setAuthError(null);
+    clearAuthError();
     googleAuthProvider.setCustomParameters({
       prompt: 'select_account',
     });
@@ -180,23 +186,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       const msg = translateAuthError(err);
       setAuthError(msg);
+      setAuthErrorCode(err?.code || null);
       throw new Error(msg);
     }
   };
 
   const signInWithEmail = async (email: string, password: string) => {
-    setAuthError(null);
+    clearAuthError();
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err: any) {
       const msg = translateAuthError(err);
       setAuthError(msg);
+      setAuthErrorCode(err?.code || null);
       throw new Error(msg);
     }
   };
 
   const registerWithEmail = async (displayName: string, email: string, password: string) => {
-    setAuthError(null);
+    clearAuthError();
     try {
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       if (displayName.trim()) {
@@ -206,17 +214,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       const msg = translateAuthError(err);
       setAuthError(msg);
+      setAuthErrorCode(err?.code || null);
       throw new Error(msg);
     }
   };
 
   const resetPassword = async (email: string) => {
-    setAuthError(null);
+    clearAuthError();
     try {
       await sendPasswordResetEmail(auth, email.trim());
     } catch (err: any) {
       const msg = translateAuthError(err);
       setAuthError(msg);
+      setAuthErrorCode(err?.code || null);
       throw new Error(msg);
     }
   };
@@ -240,7 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    setAuthError(null);
+    clearAuthError();
     await signOut(auth);
   };
 
@@ -263,6 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         loading,
         authError,
+        authErrorCode,
         clearAuthError,
         isAdmin,
         needsEmailVerification,

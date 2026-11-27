@@ -156,6 +156,7 @@ const AppWorkspace: React.FC = () => {
     profile,
     loading,
     authError,
+    authErrorCode,
     clearAuthError,
     isAdmin,
     needsEmailVerification,
@@ -189,6 +190,7 @@ const AppWorkspace: React.FC = () => {
         onResetPassword={resetPassword}
         onClearAuthError={clearAuthError}
         authError={authError}
+        authErrorCode={authErrorCode}
       />
     );
   }
